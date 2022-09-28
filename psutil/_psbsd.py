@@ -19,6 +19,7 @@ from . import _psutil_posix as cext_posix
 from ._common import FREEBSD
 from ._common import NETBSD
 from ._common import OPENBSD
+from ._common import DRAGONFLY
 from ._common import AccessDenied
 from ._common import NoSuchProcess
 from ._common import ZombieProcess
@@ -50,6 +51,14 @@ if FREEBSD:
         cext.SZOMB: _common.STATUS_ZOMBIE,
         cext.SWAIT: _common.STATUS_WAITING,
         cext.SLOCK: _common.STATUS_LOCKED,
+    }
+elif DRAGONFLY:
+    PROC_STATUSES = {
+        cext.SIDL: _common.STATUS_IDLE,
+        cext.SACTIVE: _common.STATUS_RUNNING,
+        cext.SSTOP: _common.STATUS_STOPPED,
+        cext.SZOMB: _common.STATUS_ZOMBIE,
+        cext.SCORE: _common.STATUS_CORE,
     }
 elif OPENBSD:
     PROC_STATUSES = {
@@ -166,6 +175,10 @@ if FREEBSD:
                                      'read_bytes', 'write_bytes',
                                      'read_time', 'write_time',
                                      'busy_time'])
+elif DRAGONFLY:
+    sdiskio = namedtuple('sdiskio', ['read_count', 'write_count',
+                                     'read_bytes', 'write_bytes',
+                                     'busy_time'])
 else:
     sdiskio = namedtuple('sdiskio', ['read_count', 'write_count',
                                      'read_bytes', 'write_bytes'])
@@ -254,6 +267,9 @@ if OPENBSD or NETBSD:
     def cpu_count_cores():
         # OpenBSD and NetBSD do not implement this.
         return 1 if cpu_count_logical() == 1 else None
+elif DRAGONFLY:
+    def cpu_count_cores():
+        return cext.cpu_count_cores()
 else:
     def cpu_count_cores():
         """Return the number of CPU cores in the system."""
@@ -284,7 +300,7 @@ else:
 
 def cpu_stats():
     """Return various CPU stats as a named tuple."""
-    if FREEBSD:
+    if FREEBSD or DRAGONFLY:
         # Note: the C ext is returning some metrics we are not exposing:
         # traps.
         ctxsw, intrs, soft_intrs, syscalls, traps = cext.cpu_stats()
@@ -774,7 +790,7 @@ class Process(object):
             raise ValueError("invalid %r kind argument; choose between %s"
                              % (kind, ', '.join([repr(x) for x in conn_tmap])))
 
-        if NETBSD:
+        if NETBSD or DRAGONFLY:
             families, types = conn_tmap[kind]
             ret = []
             rawlist = cext.net_connections(self.pid)
@@ -870,7 +886,8 @@ class Process(object):
         @wrap_exceptions
         def num_fds(self):
             """Return the number of file descriptors opened by this process."""
-            ret = cext.proc_num_fds(self.pid)
+            if FREEBSD or DRAGONFLY:
+                ret = cext.proc_num_fds(self.pid)
             if NETBSD:
                 self._assert_alive()
             return ret

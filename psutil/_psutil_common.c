@@ -155,7 +155,8 @@ psutil_set_debug(PyObject *self, PyObject *args) {
 // Utility functions (BSD)
 // ============================================================================
 
-#if defined(PSUTIL_FREEBSD) || defined(PSUTIL_OPENBSD) || defined(PSUTIL_NETBSD)
+#if defined(PSUTIL_FREEBSD) || defined(PSUTIL_OPENBSD) || defined(PSUTIL_NETBSD) || \
+    defined(PSUTIL_DRAGONFLY)
 void
 convert_kvm_err(const char *syscall, char *errbuf) {
     char fullmsg[8192];
